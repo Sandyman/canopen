@@ -119,8 +119,10 @@ class Network(MutableMapping):
         for node in self.nodes.values():
             if hasattr(node, "pdo"):
                 node.pdo.stop()
-        self.notifier.stop()
-        self.bus.shutdown()
+        if self.notifier is not None:
+            self.notifier.stop()
+        if self.bus is not None:
+            self.bus.shutdown()
         self.bus = None
         self.check()
 
@@ -244,10 +246,11 @@ class Network(MutableMapping):
         If an exception caused the thread to terminate, that exception will be
         raised.
         """
-        exc = self.notifier.exception
-        if exc is not None:
-            logger.error("An error has caused receiving of messages to stop")
-            raise exc
+        if self.notifier is not None:
+            exc = self.notifier.exception
+            if exc is not None:
+                logger.error("An error has caused receiving of messages to stop")
+                raise exc
 
     def __getitem__(self, node_id):
         return self.nodes[node_id]

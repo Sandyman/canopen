@@ -36,6 +36,17 @@ def import_eds(source, node_id):
         od.node_id = int(eds.get("DeviceComissioning", "NodeID"))
 
     for section in eds.sections():
+        # Match dummy definitions
+        match = re.match(r"^[Dd]ummy[Uu]sage$", section)
+        if match is not None:
+            for i in range(1, 8):
+                key = "Dummy%04d" % i
+                if eds.getint(section, key) == 1:
+                    var = objectdictionary.Variable(key, i, 0)
+                    var.data_type = i
+                    var.access_type = "const"
+                    od.add_object(var)
+
         # Match indexes
         match = re.match(r"^[0-9A-Fa-f]{4}$", section)
         if match is not None:
@@ -102,7 +113,7 @@ def import_from_node(node_id, network):
     :param network: network object
     """
     # Create temporary SDO client
-    sdo_client = SdoClient(0x600 + node_id, 0x580 + node_id, None)
+    sdo_client = SdoClient(0x600 + node_id, 0x580 + node_id, objectdictionary.ObjectDictionary())
     sdo_client.network = network
     # Subscribe to SDO responses
     network.subscribe(0x580 + node_id, sdo_client.on_response)
@@ -125,9 +136,10 @@ def _convert_variable(node_id, var_type, value):
     elif var_type in objectdictionary.FLOAT_TYPES:
         return float(value)
     else:
-        # COB-ID can have a suffix of '$NODEID+' so replace this with node_id before converting
-        if '$NODEID+' in value and node_id is not None:
-            return int(value.replace('$NODEID+', ''), 0) + node_id
+        # COB-ID can contain '$NODEID+' so replace this with node_id before converting
+        value = value.replace(" ","").upper()
+        if '$NODEID' in value and node_id is not None:
+            return int(re.sub(r'\+?\$NODEID\+?', '', value), 0) + node_id
         else:
             return int(value, 0)
 
